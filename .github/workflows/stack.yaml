@@ -1,0 +1,33 @@
+name: Haskell CI
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-haskell@v1.1
+      with:
+        ghc-version: '8.8'
+        enable-stack: true
+        stack-no-global: true
+        stack-setup-ghc: true
+
+    - name: stack cache
+      id: stack-cache
+      uses: actions/cache@v2
+      with:
+        path: ~/.stack
+        key: stack-v1-${{ runner.os }}-${{ hashFiles('**/stack.yaml.lock') }}-${{ hashFiles('**/stack.yaml.lock') }}
+
+    - name: stack setup
+      if: steps.stack-cache.outputs.cache-hit != 'true'
+      run: stack setup
+
+    - name: build
+      run: stack build
