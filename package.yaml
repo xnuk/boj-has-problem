@@ -1,0 +1,22 @@
+name: &name boj-has-problem
+version: 0.0.0
+
+library:
+  source-dirs: src
+  dependencies:
+  - tagsoup
+  - req
+
+executable:
+  main: Main.hs
+  dependencies: *name
+  ghc-options:
+  - -rtsopts
+  - -threaded
+  - -with-rtsopts=-N
+  - -O2
+  verbatim:
+  - default-extensions: null
+  - mixins: null
+
+defaults: xnuk/haskell@hpack
