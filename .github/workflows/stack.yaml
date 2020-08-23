@@ -23,11 +23,10 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.stack
-        key: stack-v1-${{ runner.os }}-${{ hashFiles('**/stack.yaml.lock') }}-${{ hashFiles('**/stack.yaml.lock') }}
+        key: stack-v1-${{ runner.os }}-${{ hashFiles('~/.stack/stack.sqlite3') }}
 
-    - name: stack setup
-      if: steps.stack-cache.outputs.cache-hit != 'true'
-      run: stack setup
+    - name: stack deps
+      run: stack build --dependencies-only
 
     - name: build
       run: stack build
