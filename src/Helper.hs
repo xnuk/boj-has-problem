@@ -1,5 +1,5 @@
 module Helper
-  ( St, Ac, Act
+  ( Act
   , parseTags
   , takeTill, dropTill, after
   , getText, getTextAfter
@@ -12,15 +12,24 @@ import "tagsoup" Text.HTML.TagSoup
   , (~/=), (~==)
   , isTagText, parseTagsOptions, parseOptionsFast
   )
+import "tagsoup" Text.StringLike (StringLike)
 
 import Data.List (span)
 import "text" Data.Text.Lazy (strip, stripPrefix)
 
-type St = [Tag LText]
-type Ac = StateT St
-type Act = Ac Maybe
+type Tx = LText
+type Stt a = [Tag a]
+type Attr a = [(a, a)]
+type ConstVoid a = ()
+type Acs a b = forall m. Monad m => StateT (Stt a) m b
+type ActMaybe a = StateT (Stt a) Maybe
+type Act = ActMaybe Tx
 
-parseTags :: LText -> [Tag LText]
+type StateMachine a m k = StateT (Stt a) m (k a)
+type Acmsk m k = forall a. StringLike a => StateMachine a m k
+type Acsk k = forall m. Monad m => Acmsk m k
+
+parseTags :: Tx -> [Tag Tx]
 parseTags = parseTagsOptions parseOptionsFast
 
 toMaybe :: (a -> Bool) -> Maybe a -> Maybe a
@@ -29,10 +38,10 @@ toMaybe f x@(Just a)
   | otherwise = Nothing
 toMaybe _ _ = Nothing
 
-takeTill :: Monad m => String -> Ac m [Tag LText]
+takeTill :: String -> Acsk Stt
 takeTill str = state $ span (~/= str)
 
-dropTill :: String -> Act [(LText, LText)]
+dropTill :: String -> Acmsk Maybe Attr
 dropTill str = do
   modify $ dropWhile (~/= str)
 
@@ -45,18 +54,21 @@ dropTill str = do
     TagClose _ -> pure []
     _ -> lift $ Nothing
 
-after :: String -> Act ()
+after :: String -> Acmsk Maybe ConstVoid
 after = void . dropTill
 
-getText :: Monad m => Ac m LText
-getText = state $ collect mempty . dropWhile (not . isTagText) where
+getTextWith :: Monoid a => (a -> a) -> Acs a a
+getTextWith f = state $ collect mempty . dropWhile (not . isTagText) where
   collect text (TagText a : xs) = collect (text <> a) xs
-  collect text xs = (strip text, xs)
+  collect text xs = (f text, xs)
 
-getTextAfter :: String -> Act LText
+getText :: Acs Tx Tx
+getText = getTextWith strip
+
+getTextAfter :: String -> ActMaybe Tx Tx
 getTextAfter tag = after tag *> getText
 
-listup :: Act a -> St -> [a]
+listup :: ActMaybe a b -> Stt a -> [b]
 listup act = runner <&> \case
   Just (a, s) -> a : listup act s
   Nothing -> []

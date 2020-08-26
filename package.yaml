@@ -6,6 +6,8 @@ library:
   dependencies:
   - tagsoup
   - req
+  - template-haskell
+  - haskell-src-meta
 
 executable:
   main: Main.hs
