@@ -1,6 +1,5 @@
 module Helper
-  ( Act
-  , parseTags
+  ( Acmsk, AcmskM, AcmsM, Acsk, Id, Acs, AcsM, parseTags
   , takeTill, dropTill, after
   , getText, getTextAfter
   , strip, stripPrefix
@@ -9,27 +8,34 @@ module Helper
 
 import "tagsoup" Text.HTML.TagSoup
   ( Tag(..)
-  , (~/=), (~==)
   , isTagText, parseTagsOptions, parseOptionsFast
   )
-import "tagsoup" Text.StringLike (StringLike)
+
+import qualified "tagsoup" Text.HTML.TagSoup as T
 
 import Data.List (span)
-import "text" Data.Text.Lazy (strip, stripPrefix)
+import Textable (Textable, strip, stripPrefix, Tagger(..))
 
-type Tx = LText
 type Stt a = [Tag a]
 type Attr a = [(a, a)]
-type ConstVoid a = ()
+type Constant b a = b
+type Id a = a
 type Acs a b = forall m. Monad m => StateT (Stt a) m b
-type ActMaybe a = StateT (Stt a) Maybe
-type Act = ActMaybe Tx
+type AcsM a b = StateT (Stt a) Maybe b
 
 type StateMachine a m k = StateT (Stt a) m (k a)
-type Acmsk m k = forall a. StringLike a => StateMachine a m k
+type StateMachineConstant a m b = StateMachine a m (Constant b)
+type Acmsk m k = forall a. (Textable a) => StateMachine a m k
+type Acms m b = Acmsk m (Constant b)
 type Acsk k = forall m. Monad m => Acmsk m k
+type AcmskM k = Acmsk Maybe k
+type AcmsM b = Acms Maybe b
 
-parseTags :: Tx -> [Tag Tx]
+(~/=), (~==) :: Textable a => Tag a -> Tagger a -> Bool
+a ~/= (Tag b) = (T.~/=) a b
+a ~== (Tag b) = (T.~==) a b
+
+parseTags :: Textable a => a -> [Tag a]
 parseTags = parseTagsOptions parseOptionsFast
 
 toMaybe :: (a -> Bool) -> Maybe a -> Maybe a
@@ -38,10 +44,10 @@ toMaybe f x@(Just a)
   | otherwise = Nothing
 toMaybe _ _ = Nothing
 
-takeTill :: String -> Acsk Stt
+takeTill :: Textable a => Tagger a -> Acs a (Stt a)
 takeTill str = state $ span (~/= str)
 
-dropTill :: String -> Acmsk Maybe Attr
+dropTill :: Textable a => Tagger a -> AcsM a (Attr a)
 dropTill str = do
   modify $ dropWhile (~/= str)
 
@@ -54,7 +60,7 @@ dropTill str = do
     TagClose _ -> pure []
     _ -> lift $ Nothing
 
-after :: String -> Acmsk Maybe ConstVoid
+after :: Textable a => Tagger a -> AcsM a ()
 after = void . dropTill
 
 getTextWith :: Monoid a => (a -> a) -> Acs a a
@@ -62,13 +68,13 @@ getTextWith f = state $ collect mempty . dropWhile (not . isTagText) where
   collect text (TagText a : xs) = collect (text <> a) xs
   collect text xs = (f text, xs)
 
-getText :: Acs Tx Tx
+getText :: Acsk Id
 getText = getTextWith strip
 
-getTextAfter :: String -> ActMaybe Tx Tx
+getTextAfter :: Textable a => Tagger a -> AcsM a a
 getTextAfter tag = after tag *> getText
 
-listup :: ActMaybe a b -> Stt a -> [b]
+listup :: StateMachineConstant a Maybe b -> Stt a -> [b]
 listup act = runner <&> \case
   Just (a, s) -> a : listup act s
   Nothing -> []

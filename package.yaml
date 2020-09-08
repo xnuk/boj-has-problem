@@ -8,6 +8,8 @@ library:
   - req
   - template-haskell
   - haskell-src-meta
+  default-extensions:
+  - OverloadedStrings
 
 executable:
   main: Main.hs
@@ -21,4 +23,4 @@ executable:
   - default-extensions: null
   - mixins: null
 
-defaults: xnuk/haskell@hpack
+defaults: xnuk/xnuk@hpack
